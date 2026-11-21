@@ -487,6 +487,8 @@ What the block does:
 - The rules are saved and restored at every boot by the `free-sleep-firewall` service.
 - Running the script again is safe. It replaces the rules; it does not add duplicates.
 - If the Pod has no IPv6 firewall, the script prints a warning and blocks IPv4 only.
+- Blocked IPv6 connections are refused rather than ignored, so a browser that tries one of the Pod's public IPv6 addresses moves straight on to one that works.
+- The Pod serves `http://` only. If a browser turns the address into `https://`, type `http://` in front of it.
 
 **Everything that switches the block on.** The block is turned on, even if you had turned it off, by:
 
