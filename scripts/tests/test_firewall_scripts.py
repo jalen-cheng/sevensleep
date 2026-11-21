@@ -130,6 +130,23 @@ if [ "$1" = "is-enabled" ] && [ "$2" = "swupdate.socket" ]; then echo masked; fi
         # Only the multicast address is opened for that port, not the internet
         self.assertNotIn('-A OUTPUT -p udp --dport 5353 -j ACCEPT', rules)
 
+    def test_blocked_ipv6_connections_are_refused_not_left_to_time_out(self):
+        self.run_script('block_internet_access.sh')
+        rules = self.read_rules('ip6tables.rules')
+        refuse = rules.index('-A INPUT -p tcp -j REJECT --reject-with tcp-reset')
+        # Refusing comes after everything that is let in, and lets nothing more in
+        self.assertGreater(refuse, rules.index('-A INPUT -s fe80::/10 -j ACCEPT'))
+        self.assertEqual(rules[-3:], ['-A INPUT -j DROP', '-A OUTPUT -j DROP', 'COMMIT'])
+        self.assertIn('-A OUTPUT -p tcp --tcp-flags RST RST -j ACCEPT', rules)
+
+    def test_a_pod_that_cannot_refuse_ipv6_connections_still_blocks_them(self):
+        restore = self.commands / 'ip6tables-restore'
+        restore.write_text('#!/bin/sh\nif grep -q REJECT; then exit 1; fi\n')
+        self.run_script('block_internet_access.sh')
+        rules = self.read_rules('ip6tables.rules')
+        self.assertNotIn('-A INPUT -p tcp -j REJECT --reject-with tcp-reset', rules)
+        self.assertEqual(rules[-3:], ['-A INPUT -j DROP', '-A OUTPUT -j DROP', 'COMMIT'])
+
     def test_temporary_unblock_keeps_boot_persistence(self):
         self.run_script('block_internet_access.sh')
         self.log.unlink()

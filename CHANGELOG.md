@@ -10,6 +10,9 @@ version. Anything older is in the [git history](https://github.com/jalen-cheng/s
 - Fixes from a review of everything since 3.20: the firmware timer on the night the clocks change, a press inside a dialog turning the bed on, and a more careful boot-slot check.
 - The MCP server (1.0.2) sends a change to both sides when they are linked, and takes whole degrees.
 
+### 3.25.1
+- The internet block refuses blocked IPv6 connections at once instead of leaving them to time out, so `sevensleep.local` no longer hangs on a device that tries the Pod's public IPv6 address or `https://` first.
+
 ## 3.24
 - How to help with the autopilot, and a call for anyone with a Pod 6.
 - The docs site has one menu on a phone.

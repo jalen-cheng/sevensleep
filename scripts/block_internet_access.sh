@@ -111,8 +111,12 @@ build_ipv4_rules() {
   echo "COMMIT"
 }
 
-# Prints the IPv6 ruleset in ip6tables-restore format.
+# Prints the IPv6 ruleset in ip6tables-restore format. With "refuse", a blocked connection is
+# answered with a reset instead of silence. The Pod's .local name also gives out its public IPv6
+# addresses, which are blocked: a phone or browser that tries one of those first then moves on to
+# an address that works at once, instead of waiting for a timeout. Nothing more is let in.
 build_ipv6_rules() {
+  blocked_connections="${1:-refuse}"
   echo "*filter"
   echo ":INPUT ACCEPT [0:0]"
   echo ":FORWARD ACCEPT [0:0]"
@@ -135,6 +139,11 @@ build_ipv6_rules() {
     echo "-A INPUT -s $private_range -j ACCEPT"
     echo "-A OUTPUT -d $private_range -j ACCEPT"
   done
+  if [ "$blocked_connections" = "refuse" ]; then
+    echo "-A INPUT -p tcp -j REJECT --reject-with tcp-reset"
+    # The reset itself has to be let out. It carries no data.
+    echo "-A OUTPUT -p tcp --tcp-flags RST RST -j ACCEPT"
+  fi
   echo "-A INPUT -j DROP"
   echo "-A OUTPUT -j DROP"
   echo "COMMIT"
@@ -186,10 +195,15 @@ iptables-restore < "$FIREWALL_RULES_V4"
 # Best-effort: some Pod images have no IPv6 firewall. Failing here must not stop the script
 # before the IPv4 block (already live) is saved and set to come back at boot.
 echo "Configuring IPv6 rules..."
-build_ipv6_rules > "$FIREWALL_RULES_V6"
+build_ipv6_rules refuse > "$FIREWALL_RULES_V6"
 if ! ip6tables-restore < "$FIREWALL_RULES_V6"; then
-  echo "WARNING: could not apply the IPv6 rules; IPv4 is blocked, IPv6 is not." >&2
-  rm -f "$FIREWALL_RULES_V6"
+  # A Pod whose kernel cannot send the reset still gets the block, with silence instead
+  echo "This Pod cannot refuse blocked IPv6 connections; dropping them silently instead." >&2
+  build_ipv6_rules silent > "$FIREWALL_RULES_V6"
+  if ! ip6tables-restore < "$FIREWALL_RULES_V6"; then
+    echo "WARNING: could not apply the IPv6 rules; IPv4 is blocked, IPv6 is not." >&2
+    rm -f "$FIREWALL_RULES_V6"
+  fi
 fi
 
 save_firewall_option ALLOW_SENTRY "$ALLOW_SENTRY"
