@@ -144,8 +144,8 @@ It has not yet been through a real night; what it rests on is the gap between th
 
 **3. Is the body asleep?** (`server/src/autopilot/sleepTracker.ts`) By stillness, the way a
 wrist tracker's movement sensor does. Each minute is summed up as a count of seconds with
-movement: **still** is 3 or fewer, a **turn** is more than that and under 12, **restless** is
-12 or more.
+movement: **still** is 3 or fewer, a **turn** is more than that and under 20, **restless** is
+20 or more.
 
 - **Asleep:** 15 minutes that begin and end still, with no restless minute among them and at
   most one turn (people shift once as they drop off). The bed can only act on it once the 15
@@ -161,6 +161,11 @@ movement: **still** is 3 or fewer, a **turn** is more than that and under 12, **
   minutes. With this rule the same record replays at 73%, and the times the watch or the sleeper
   said awake are still seen. That is limited data, and the number of minutes is one of the
   things a tracker's record tunes.
+- **Restless** was 12 moving seconds until 3.25.2. A band reported sleep with no waking but
+  some restlessness (n=1), while the bed called much of the morning awake. At 20 seconds the
+  saved records with a tracker replay at 86% and 94% agreement, from 72% and 82%, and the time
+  in bed before sleep and after waking is still read as awake. A higher number agrees more
+  still, but only because these records hold almost no waking to miss, so it stops at 20.
 - **Out of bed** starts it over.
 
 <img src="diagrams/stillness-rule.svg" width="560" alt="Flowchart: the minute's moving seconds, then the check for falling asleep or for waking">

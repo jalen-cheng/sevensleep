@@ -137,7 +137,7 @@ export const handlers = [
       },
       right: {
         stage: 'out', learned: { early: 0, middle: 0, late: 0 },
-        rules: { stillMinutesToSleep: 15, restlessSecondsToWake: 12, calmMinutesToResume: 5 },
+        rules: { stillMinutesToSleep: 15, restlessSecondsToWake: 20, calmMinutesToResume: 5 },
       },
     });
   }),

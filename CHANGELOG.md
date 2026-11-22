@@ -13,6 +13,9 @@ version. Anything older is in the [git history](https://github.com/jalen-cheng/s
 ### 3.25.1
 - The internet block refuses blocked IPv6 connections at once instead of leaving them to time out, so `sevensleep.local` no longer hangs on a device that tries the Pod's public IPv6 address or `https://` first.
 
+### 3.25.2
+- Sleep detection: a restless minute is 20 moving seconds, up from 12, so restless sleep is no longer read as lying awake (checked against a band, n=1).
+
 ## 3.24
 - How to help with the autopilot, and a call for anyone with a Pod 6.
 - The docs site has one menu on a phone.

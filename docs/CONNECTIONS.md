@@ -135,7 +135,7 @@ or awake, and so does the bed (its saved movement, run through its sleep rules).
 minutes on which the two agree is the match shown under "Sleep detection" on Data > Sleep,
 and each night's Summary shows the record's own times beside the bed's.
 
-**Fitting.** The bed's own numbers (15 still minutes, 12 moving seconds, breathing not asked
+**Fitting.** The bed's own numbers (15 still minutes, 20 moving seconds, breathing not asked
 for) are guesses, and a watch or band is the better judge of when you slept. When the tracker's
 record says when you were awake in the night, that is used, not only when you fell asleep and
 woke: the bed's saved minutes are replayed under each candidate set of numbers and scored on

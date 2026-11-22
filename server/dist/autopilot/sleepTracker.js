@@ -8,10 +8,10 @@
 // from the rest: the night plan assumes deep sleep by the clock instead.
 // Keep this file free of runtime imports so tests can load it without a Pod environment.
 
-!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="12fed55f-b0d1-5d7b-91e9-79ca83d5e911")}catch(e){}}();
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="c6638ca7-5059-5f94-8ac7-999f0b3d750e")}catch(e){}}();
 export const DEFAULT_CALM_MINUTES_TO_RESUME = 5;
 export const DEFAULT_SLEEP_RULES = {
-    stillMinutesToSleep: 15, restlessSecondsToWake: 12, calmMinutesToResume: DEFAULT_CALM_MINUTES_TO_RESUME,
+    stillMinutesToSleep: 15, restlessSecondsToWake: 20, calmMinutesToResume: DEFAULT_CALM_MINUTES_TO_RESUME,
 };
 // A minute with this many moving seconds or fewer counts as lying still
 const STILL_MINUTE_MAX_MOVEMENT_SECONDS = 3;
@@ -238,4 +238,4 @@ export function readTrackerMinutes(tracker, startedAtMs, minuteCount) {
     });
 }
 //# sourceMappingURL=sleepTracker.js.map
-//# debugId=12fed55f-b0d1-5d7b-91e9-79ca83d5e911
+//# debugId=c6638ca7-5059-5f94-8ac7-999f0b3d750e

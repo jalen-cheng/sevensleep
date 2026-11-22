@@ -47,7 +47,7 @@ export type SleepRules = {
 };
 export const DEFAULT_CALM_MINUTES_TO_RESUME = 5;
 export const DEFAULT_SLEEP_RULES: SleepRules = {
-  stillMinutesToSleep: 15, restlessSecondsToWake: 12, calmMinutesToResume: DEFAULT_CALM_MINUTES_TO_RESUME,
+  stillMinutesToSleep: 15, restlessSecondsToWake: 20, calmMinutesToResume: DEFAULT_CALM_MINUTES_TO_RESUME,
 };
 
 // A minute with this many moving seconds or fewer counts as lying still
