@@ -100,6 +100,9 @@ test('a sleeper is asleep after lying still, whatever the heart does, and awake 
   assert.equal(addMinutes(tracker, 2, { isInBed: true, movementSeconds: 20 }).stage, 'asleep');
   assert.equal(addMinutes(tracker, 10, { isInBed: true, movementSeconds: 0 }).stage, 'asleep');
   assert.equal(addMinutes(tracker, 3, { isInBed: true, movementSeconds: 20 }).stage, 'awake');
+  // Restless sleep is not waking: minutes just under the restless mark do not end it
+  addMinutes(tracker, 5, { isInBed: true, movementSeconds: 0 });
+  assert.equal(addMinutes(tracker, 5, { isInBed: true, movementSeconds: 19 }).stage, 'asleep');
   // Getting out starts over
   assert.deepEqual(tracker.addMinute({ isInBed: false, movementSeconds: 0 }), { stage: 'out', minutesInBed: 0 });
 });
