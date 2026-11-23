@@ -32,6 +32,9 @@ export type NightMinute = {
   roomF?: number;
   hubRoomF?: number;
   surfaceF?: number;
+  // On one sleeper's bed, the side the sleeper lay on when it was not the stay's own: the
+  // row's readings are then that side's
+  bodySide?: Side;
 };
 
 export type TrackerSleep = {
@@ -100,8 +103,9 @@ export function countWakeUps(minutes: Pick<NightMinute, 'stage'>[]): number {
 
 const MINUTE_MS = 60_000;
 
-// The stays of a bed that one person sleeps in. Each side keeps its own record, so a sleeper who
-// lies across the middle, or moves over in the night, leaves two for the same hours. Of stays
+// The stays of a bed that one person sleeps in. With the autopilot off, and in records from
+// before 3.26, each side keeps its own, so a sleeper who lies across the middle, or moves over
+// in the night, leaves two for the same hours. Of stays
 // that share time, the one with the most sleep is kept. Most sleep first.
 export function pickBedStays<Stay extends Pick<NightRecord, 'startedAtMs' | 'minutes'>>(stays: Stay[]): Stay[] {
   const asleepMinutes = (stay: Stay) => stay.minutes.filter(minute => minute.stage === 'asleep').length;

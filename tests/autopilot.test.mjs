@@ -13,6 +13,7 @@ import {
   findScheduledTemperatureF, findUsualSleep, isNightExpected, isWithinScheduledNight, kindOfSleep,
 } from '../server/src/autopilot/scheduledBase.ts';
 import { countWakeUps, pickBedStays } from '../server/src/autopilot/nightRecord.ts';
+import { mergeSides } from '../server/src/autopilot/oneSleeper.ts';
 import { isAutopilotSteering, setAutopilotSteering } from '../server/src/jobs/autopilotSteering.ts';
 import { OVERDUE_BY_MS, findOverdueJob } from '../server/src/jobs/overdueJobs.ts';
 import {
@@ -649,4 +650,55 @@ test('a job whose next run is well in the past is found; one a moment late, or w
   assert.equal(findOverdueJob([waiting, { name: 'stuck', nextRunMs: nowMs - OVERDUE_BY_MS - 1 }], nowMs), 'stuck');
   // A job with no run to come (a one-time alarm that has gone off) is not stuck
   assert.equal(findOverdueJob([{ name: 'done' }], nowMs), undefined);
+});
+
+test('one sleeper is followed across the two sides of a linked bed', () => {
+  const empty = { isInBed: false };
+  const lying = movementSeconds => ({ isInBed: true, movementSeconds });
+  // Nobody in bed; then a sleeper on the right, whose side the stay begins on
+  assert.deepEqual(mergeSides({ left: empty, right: empty }), { isInBed: false, movementSeconds: undefined, staySide: 'left', bodySide: undefined });
+  assert.deepEqual(mergeSides({ left: empty, right: lying(2) }), { isInBed: true, movementSeconds: 2, staySide: 'right', bodySide: 'right' });
+  // Moved over to the left: the stay stays the right side's, and the readings are the left's
+  assert.deepEqual(
+    mergeSides({ left: lying(1), right: empty }, { staySide: 'right' }),
+    { isInBed: true, movementSeconds: 1, staySide: 'right', bodySide: 'left' },
+  );
+  // Across the middle: the side pressed harder, and the greater movement of the two
+  const across = mergeSides({ left: lying(4), right: lying(9) }, { staySide: 'right', pressure: { left: 3000, right: 1200 } });
+  assert.deepEqual([across.bodySide, across.movementSeconds, across.staySide], ['left', 9, 'right']);
+  assert.equal(mergeSides({ left: lying(4), right: lying(9) }, { staySide: 'right' }).bodySide, 'right');
+  // A side whose sensor could not say adds nothing; when neither can, the minute says nothing
+  assert.equal(mergeSides({ left: lying(undefined), right: lying(5) }).movementSeconds, 5);
+  assert.equal(mergeSides({ left: lying(undefined), right: empty }).movementSeconds, undefined);
+  // Out of bed altogether is still out, and the stay is still the right side's to end
+  assert.deepEqual(mergeSides({ left: empty, right: empty }, { staySide: 'right' }).isInBed, false);
+});
+
+test('moving over to the other side in the night does not end the sleep', () => {
+  // Asleep on the right for an hour, then half an hour on the left, then back
+  const still = { isInBed: true, movementSeconds: 0 };
+  const empty = { isInBed: false };
+  const night = [
+    ...new Array(60).fill({ left: empty, right: still }),
+    { left: { isInBed: true, movementSeconds: 25 }, right: { isInBed: true, movementSeconds: 30 } },
+    ...new Array(30).fill({ left: still, right: empty }),
+    { left: { isInBed: true, movementSeconds: 30 }, right: { isInBed: true, movementSeconds: 25 } },
+    ...new Array(30).fill({ left: empty, right: still }),
+  ];
+  // Each side on its own: the right side sees its sleeper leave, and the left a short new sleep
+  const rightAlone = createSleepTracker();
+  const stagesAlone = night.map(minute => rightAlone.addMinute(minute.right).stage);
+  assert.equal(stagesAlone[75], 'out');
+  // As one sleeper: asleep throughout, counted from the start, in one stay on the right
+  const tracker = createSleepTracker();
+  let staySide;
+  let state;
+  night.forEach((minute, index) => {
+    const bedMinute = mergeSides(minute, { staySide });
+    staySide = bedMinute.staySide;
+    state = tracker.addMinute(bedMinute);
+    if (index >= 15) assert.equal(state.stage, 'asleep', `minute ${index}`);
+  });
+  assert.equal(staySide, 'right');
+  assert.deepEqual([state.stage, state.minutesAsleep], ['asleep', night.length]);
 });
