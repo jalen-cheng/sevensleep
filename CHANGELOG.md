@@ -3,6 +3,9 @@
 What changed in each version of SevenSleep, newest first. Patches are listed under their
 version. Anything older is in the [git history](https://github.com/jalen-cheng/sevensleep/commits/main).
 
+## 3.26
+- With the autopilot on, the bed is sensed as one sleeper: moving over to the other side in the night no longer ends the sleep or splits the night's record in two.
+
 ## 3.25
 - Docs: SevenSleep compared with Free Sleep, with how to switch and how to go back.
 - The in-bed alarm counts hours from falling asleep, not from getting into bed, and is named "Alarm after a long sleep".

@@ -4,8 +4,10 @@
 // modules beside this file; this one holds the state and talks to the Pod. Pod 5 only: it needs
 // the sensor bus.
 //
-// The autopilot takes the bed to be one sleeper's: the sides are linked while it is on, each
-// side is sensed and saved on its own, and one night is steered for the whole bed.
+// The autopilot takes the bed to be one sleeper's: the sides are linked while it is on, the two
+// sides are sensed as one sleeper and saved as one stay that follows them across the bed
+// (oneSleeper.ts), and one night is steered for the whole bed. With it off, each side is sensed
+// and saved on its own.
 //
 // Who sets the temperature, most to least binding:
 //   - a side that is off, in away mode, or under wake-up heat is left alone
@@ -18,7 +20,7 @@
 // ends, or the autopilot is switched off, the bed is given what the schedule wants at that
 // hour, or failing that its base.
 
-!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="46486e51-75c3-57bc-86b8-abba9ca78bce")}catch(e){}}();
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="54803466-b1bd-59ef-a795-f657a2f67318")}catch(e){}}();
 import { readFileSync, renameSync, writeFileSync } from 'fs';
 import moment from 'moment-timezone';
 import config from '../config.js';
@@ -42,6 +44,7 @@ import { registerManualChangeListener } from './manualChanges.js';
 import { deleteNight, listNights, pruneNights, saveNight } from './nightLog.js';
 import { MAX_OFFSET_F, MAX_STEP_F, NO_LEARNED_OFFSETS, POLICY_VERSION, learnFromCorrection, nightPartAt, planTemperature, } from './nightPlan.js';
 import { countWakeUps, pickBedStays } from './nightRecord.js';
+import { mergeSides } from './oneSleeper.js';
 import { NAP_UNDER_MINUTES, findScheduledTemperatureF, findUsualSleep, isNightExpected, isWithinScheduledNight, kindOfSleep, } from './scheduledBase.js';
 import { DEFAULT_SLEEP_RULES, MIN_NIGHTS_TO_CALIBRATE, calibrateSleepRules, createSleepTracker, mergeSleepPeriods, readTrackerMinutes, } from './sleepTracker.js';
 const SIDES = ['left', 'right'];
@@ -265,6 +268,16 @@ export function recordSurroundings(reading) {
 export function recordHubRoom(temperatureF) {
     hubRoom = { value: temperatureF, atMs: Date.now() };
 }
+// Whether the bed is taken to be one sleeper's: the autopilot is on, which keeps the sides linked
+const isOneSleepersBed = () => settingsDB.data.autopilot.enabled && settingsDB.data.linkSides;
+// The side whose state speaks for a side. On one sleeper's bed that is whichever side is
+// following the sleeper, so both sides report the same sleep.
+const stateShownFor = (side) => {
+    if (!isOneSleepersBed() || sides[side].sleep.stage !== 'out')
+        return sides[side];
+    const followingSide = SIDES.find(candidate => sides[candidate].sleep.stage !== 'out');
+    return followingSide ? sides[followingSide] : sides[side];
+};
 // A sleep is steered from the start when it began at a time that looks like the night's;
 // otherwise only once it has lasted too long to be a nap
 const maySteer = (state) => state.isNightExpected || (state.sleep.minutesAsleep ?? 0) >= NAP_UNDER_MINUTES;
@@ -279,13 +292,13 @@ export function findAsleepSinceMs(chosenSides) {
     return onsets.length > 0 ? Math.min(...onsets) : undefined;
 }
 export function getAutopilotSnapshot(nowMs = Date.now()) {
-    const describe = (side) => ({
-        stage: sides[side].sleep.stage,
-        sleepKind: sides[side].sleep.stage !== 'asleep' ? undefined
-            : bed.night || maySteer(sides[side]) ? 'night' : 'nap',
-        heartRate: roundTo(sides[side].sleep.heartRate, 0),
-        breathingRate: roundTo(sides[side].sleep.breathingRate, 0),
-        minutesAsleep: sides[side].sleep.minutesAsleep,
+    const describe = (side, shown = stateShownFor(side)) => ({
+        stage: shown.sleep.stage,
+        sleepKind: shown.sleep.stage !== 'asleep' ? undefined
+            : bed.night || maySteer(shown) ? 'night' : 'nap',
+        heartRate: roundTo(shown.sleep.heartRate, 0),
+        breathingRate: roundTo(shown.sleep.breathingRate, 0),
+        minutesAsleep: shown.sleep.minutesAsleep,
         offsetF: bed.night ? bed.lastPlan?.offsetF : undefined,
         holdingF: bed.night?.hold?.targetTemperatureF,
         lastChange: bed.lastChangeReason,
@@ -549,9 +562,22 @@ export class AutopilotMonitor {
         catch (error) {
             logger.debug(`Autopilot could not read the Pod this minute: ${String(error)}`);
         }
+        const sensed = {};
         for (const side of SIDES) {
             try {
-                await this.followSide(side, nowMs, podStatus);
+                sensed[side] = this.senseSide(side, nowMs, podStatus);
+            }
+            catch (error) {
+                logger.error(error);
+            }
+        }
+        const followed = this.followOneSleeper(sensed, nowMs);
+        for (const side of SIDES) {
+            const sensedMinute = followed[side];
+            if (!sensedMinute)
+                continue;
+            try {
+                await this.followSide(side, sensedMinute, nowMs);
             }
             catch (error) {
                 logger.error(error);
@@ -564,8 +590,29 @@ export class AutopilotMonitor {
             logger.error(error);
         }
     }
-    // One side's minute: its sleep state, and its row in the stay being saved
-    async followSide(side, nowMs, podStatus) {
+    // On one sleeper's bed, the two sides' minutes become one, given to the side that holds the
+    // stay; the other side is followed as empty. A sleeper who moves over in the night is then
+    // the same sleeper, still asleep, in the same record. Otherwise each side keeps its own.
+    followOneSleeper(sensed, nowMs) {
+        const { left, right } = sensed;
+        // A side that could not be sensed this minute leaves the other to be followed on its own
+        if (!isOneSleepersBed() || !left || !right)
+            return sensed;
+        const staysByStart = SIDES.filter(side => sides[side].stay)
+            .sort((first, second) => (sides[first].stay?.startedAtMs ?? 0) - (sides[second].stay?.startedAtMs ?? 0));
+        const bedMinute = mergeSides({ left: left.minute, right: right.minute }, { staySide: staysByStart[0], pressure: { left: fresh(pressures.left, nowMs), right: fresh(pressures.right, nowMs) } });
+        const otherSide = bedMinute.staySide === 'left' ? 'right' : 'left';
+        const body = sensed[bedMinute.bodySide ?? bedMinute.staySide] ?? left;
+        return {
+            [bedMinute.staySide]: {
+                ...body,
+                minute: { ...body.minute, isInBed: bedMinute.isInBed, movementSeconds: bedMinute.movementSeconds },
+            },
+            [otherSide]: { ...sensed[otherSide], minute: { isInBed: false } },
+        };
+    }
+    // What one side's sensors made of the minute just ended
+    senseSide(side, nowMs, podStatus) {
         const state = sides[side];
         const swings = state.minuteSwings;
         const sortedSwings = [...swings].sort((first, second) => first - second);
@@ -596,19 +643,25 @@ export class AutopilotMonitor {
             breathingRate: median(state.minuteBreathingRates),
             breathingSpread: measureBreathingSpread(state.minuteBreathingRates),
         };
-        state.sleep = state.tracker.addMinute(minute);
         state.minuteHeartRates = [];
         state.minuteBreathingRates = [];
         state.minuteSwings = [];
-        if (state.sleep.stage === 'asleep')
-            await this.noteAsleep(side, nowMs);
-        this.logMinute(side, minute, nowMs, {
+        const readings = {
             swingLow: quietSecond,
             swingMid: isSignalGood ? swingAt(0.5) : undefined,
             swingHigh: isSignalGood ? swingAt(0.9) : undefined,
             targetF: podStatus?.[side].isOn ? podStatus[side].targetTemperatureF : undefined,
             waterF: roundTo(podStatus?.[side].measuredTemperatureF ?? podStatus?.[side].currentTemperatureF, 1),
-        });
+        };
+        return { minute, readings, sensedOn: side };
+    }
+    // One side's minute: its sleep state, and its row in the stay being saved
+    async followSide(side, sensedMinute, nowMs) {
+        const state = sides[side];
+        state.sleep = state.tracker.addMinute(sensedMinute.minute);
+        if (state.sleep.stage === 'asleep')
+            await this.noteAsleep(side, nowMs);
+        this.logMinute(side, sensedMinute, nowMs);
     }
     // What the autopilot does for the bed this minute: end a night that is over, begin one when
     // someone has fallen asleep, and steer the one under way
@@ -697,7 +750,7 @@ export class AutopilotMonitor {
     }
     // Adds the minute to the stay being saved. The stay ends once the side has been empty for
     // longer than a trip out of bed takes.
-    logMinute(side, minute, nowMs, readings) {
+    logMinute(side, { minute, readings, sensedOn }, nowMs) {
         const state = sides[side];
         if (minute.isInBed) {
             state.stay ??= newStay(side, nowMs);
@@ -720,12 +773,14 @@ export class AutopilotMonitor {
             heartRate: roundTo(minute.heartRate, 0),
             breathingRate: roundTo(minute.breathingRate, 1),
             breathingSpread: roundTo(minute.breathingSpread, 1),
-            pressure: roundTo(fresh(pressures[side], nowMs), 0),
+            pressure: roundTo(fresh(pressures[sensedOn], nowMs), 0),
             stage: state.sleep.stage,
             offsetF: bed.night ? bed.lastPlan?.offsetF : undefined,
             roomF: roundTo(readRoomF(nowMs), 1),
             hubRoomF: roundTo(fresh(hubRoom, nowMs), 1),
-            surfaceF: roundTo(fresh(surfaces[side], nowMs), 1),
+            surfaceF: roundTo(fresh(surfaces[sensedOn], nowMs), 1),
+            // Only when the sleeper had moved over to the other side
+            bodySide: sensedOn === side ? undefined : sensedOn,
             ...readings,
         });
         const isTooLong = stay.minutes.length >= MAX_STAY_MINUTES;
@@ -903,4 +958,4 @@ export class AutopilotMonitor {
     }
 }
 //# sourceMappingURL=autopilotMonitor.js.map
-//# debugId=46486e51-75c3-57bc-86b8-abba9ca78bce
+//# debugId=54803466-b1bd-59ef-a795-f657a2f67318

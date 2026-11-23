@@ -14,7 +14,8 @@ whatever the sensors say.
 ## The rules it keeps
 
 - **One sleeper, whole bed.** It takes the bed to be one sleeper's. Switching it on links the
-  two sides, and unlinking them switches it off. Each side is still sensed and saved on its own.
+  two sides, and unlinking them switches it off. While it is on, the two sides are sensed as
+  one sleeper: moving over to the other side in the night is the same sleep, in the same record.
 - **It supersedes the schedule's temperatures, and nothing else of the schedule.** While it is
   steering a night, scheduled temperature changes are skipped. Bed on, bed off, the warm-up
   before the alarm and the alarm itself run as scheduled. When the night ends the bed is given
@@ -115,6 +116,13 @@ autopilot would be answering its own changes.
 
 In three steps, once a minute for each side. The first two say whether a person is there at
 all; only the third is about sleep.
+
+With the autopilot on, the two sides' minutes are put together before the third step
+(`server/src/autopilot/oneSleeper.ts`): someone is in bed when either side has a body on it,
+and the minute's movement is the greater of the two. The stay is kept by the side it began
+on, and a row sensed on the other side says so (`bodySide`). Until 3.26 each side was followed
+on its own, and a sleeper who moved over was read as getting up, with a second, short sleep
+begun on the other side. It has been run through a made-up crossing, not yet a real one.
 
 **1. Is anything on the side?** The capacitive sensors under the cover say so (in-bed
 detection, [How it works](HOW_IT_WORKS.md)). They cannot tell a person from a laptop.
@@ -287,7 +295,8 @@ that, and starts a new file.
 bedtime, wake time, duration and wake-ups, then movement, pressure on the bed and the
 autopilot's temperature changes against the clock. A night belongs to the morning it ended on.
 With the sides linked the bed is shown as one sleeper's, whichever side they lay on (where both
-sides saw the same hours, the one with the most sleep); otherwise the side this device controls.
+sides saw the same hours, as with the autopilot off or in older records, the one with the most
+sleep); otherwise the side this device controls.
 **Export** downloads the nights of the last week, two weeks, one, two or three months as one
 JSON file. `GET /api/autopilot/nights` and `GET /api/autopilot/nights/export` return the same.
 **Biometrics (legacy)** is a different system: the original project's sleep analysis, a separate
