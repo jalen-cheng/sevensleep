@@ -270,6 +270,19 @@ slept** files your own times with that stay, and they are used in the same way.
 
 <img src="diagrams/tracker-tuning.svg" width="560" alt="Flowchart: a night's record is filed with its stay, and from seven nights rule sets are replayed and only taken up if they do better on a night left out">
 
+Two things are never fitted, whatever the tracker says:
+
+- **Fewer than 10 still minutes is not sleep.** People lie still and awake for that long, and a
+  tracker that missed it would teach the bed to start the night early. Fitted with 5 allowed, a
+  record with a band (n=1) put sleep almost two hours before the band did; at 10 it is within
+  15 minutes, and agrees on about as many minutes overall.
+- **Waking is only fitted to a tracker that saw it.** If no night's record has the sleeper awake
+  for a few minutes between falling asleep and getting up, the rules for waking keep their
+  defaults: fitted to such a record, they would only learn never to call anyone awake.
+
+Rules fitted by an older version are fitted again from the saved nights when the Pod starts, so
+these apply without waiting for the tracker to send again.
+
 What made a night different (a drink, a late coffee, a cold) does not have to be known or
 entered. The bed is not predicting sleep from causes: the record says when you slept, and the
 rules are fitted to that. What such a night can do is sit badly with the others, since one set

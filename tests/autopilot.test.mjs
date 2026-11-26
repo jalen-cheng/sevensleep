@@ -20,7 +20,7 @@ import {
   BREATHING_SAMPLES_PER_SECOND, BREATHING_WINDOW_SECONDS, estimateBreathingRate, measureBreathingSpread,
 } from '../server/src/autopilot/breathingRate.ts';
 import {
-  DEFAULT_SLEEP_RULES, calibrateSleepRules, countDisagreements, createSleepTracker, detectSleepTimes, findSleepPeriods,
+  DEFAULT_SLEEP_RULES, MIN_STILL_MINUTES_TO_SLEEP, calibrateSleepRules, countDisagreements, createSleepTracker, detectSleepTimes, findSleepPeriods,
   mergeSleepPeriods, parseSampleLines, readTrackerMinutes, replaySleep,
 } from '../server/src/autopilot/sleepTracker.ts';
 import {
@@ -189,11 +189,11 @@ test('the longest sleep of a stay is the one reported', () => {
 // A night for calibration: the bed's minutes, and what a worn tracker said for each
 const makeTrackedNight = (minutes, isTrackerAsleep) => ({ minutes, trackerAsleep: minutes.map((_minute, index) => isTrackerAsleep(index)) });
 
-// This sleeper stirs for three minutes in every twelve, 15 moving seconds each, and the worn
+// This sleeper stirs for three minutes in every fourteen, 15 moving seconds each, and the worn
 // tracker says they slept through it. The night-to-night length differs a little.
 const makeRollingNight = (asleepMinutes) => {
   const minutes = [...new Array(20).fill({ isInBed: true, movementSeconds: 8 })];
-  for (let minute = 0; minute < asleepMinutes; minute++) minutes.push({ isInBed: true, movementSeconds: minute % 12 >= 9 ? 15 : 0 });
+  for (let minute = 0; minute < asleepMinutes; minute++) minutes.push({ isInBed: true, movementSeconds: minute % 14 >= 11 ? 15 : 0 });
   minutes.push(...new Array(10).fill({ isInBed: true, movementSeconds: 45 }));
   return makeTrackedNight(minutes, index => index >= 20 && index < 20 + asleepMinutes);
 };
@@ -223,6 +223,41 @@ test('calibration fits the rules to a tracker minute by minute, once there are e
   assert.equal(calibrated.isTuned, true);
   assert.ok(calibrated.rules.stillMinutesToSleep < 15, JSON.stringify(calibrated));
   assert.ok(calibrated.agreementPercent >= 95, `agreement ${calibrated.agreementPercent}`);
+  // The tracker never saw this sleeper wake, so how waking looks is not fitted to it
+  assert.equal(calibrated.rules.restlessSecondsToWake, DEFAULT_SLEEP_RULES.restlessSecondsToWake);
+  assert.equal(calibrated.rules.calmMinutesToResume, DEFAULT_SLEEP_RULES.calmMinutesToResume);
+});
+
+test('calibration does not take fewer than 10 still minutes for sleep, whatever the tracker says', () => {
+  // The tracker dates sleep from the start of 7 still minutes that end in a shift, all night
+  const makeShiftingNight = (stretches) => {
+    const minutes = [...new Array(20).fill({ isInBed: true, movementSeconds: 8 })];
+    for (let stretch = 0; stretch < stretches; stretch++) {
+      minutes.push(...new Array(7).fill({ isInBed: true, movementSeconds: 0 }), { isInBed: true, movementSeconds: 40 });
+    }
+    return makeTrackedNight(minutes, index => index >= 20);
+  };
+  const calibrated = calibrateSleepRules([50, 48, 52, 49, 51, 50, 47, 53].map(makeShiftingNight));
+  assert.ok(calibrated.rules.stillMinutesToSleep >= MIN_STILL_MINUTES_TO_SLEEP, JSON.stringify(calibrated));
+});
+
+test('a tracker that saw the sleeper wake in the night fits how waking looks', () => {
+  // Awake for half an hour in the middle of the night, shifting 15 seconds a minute: too little
+  // for the default rules to call restless
+  const makeWakingNight = (asleepMinutes) => {
+    const minutes = [
+      ...new Array(20).fill({ isInBed: true, movementSeconds: 8 }),
+      ...new Array(asleepMinutes).fill({ isInBed: true, movementSeconds: 0 }),
+      ...new Array(30).fill({ isInBed: true, movementSeconds: 15 }),
+      ...new Array(asleepMinutes).fill({ isInBed: true, movementSeconds: 0 }),
+      ...new Array(10).fill({ isInBed: true, movementSeconds: 45 }),
+    ];
+    return makeTrackedNight(minutes, index => index >= 20 && index < 20 + 2 * asleepMinutes + 30
+      && !(index >= 20 + asleepMinutes && index < 20 + asleepMinutes + 30));
+  };
+  const calibrated = calibrateSleepRules([200, 190, 210, 195, 205, 200, 198, 202].map(makeWakingNight));
+  assert.equal(calibrated.isTuned, true);
+  assert.ok(calibrated.rules.restlessSecondsToWake <= 15, JSON.stringify(calibrated));
 });
 
 test('when the default rules already fit, calibration leaves them alone', () => {

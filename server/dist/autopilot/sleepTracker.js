@@ -8,7 +8,7 @@
 // from the rest: the night plan assumes deep sleep by the clock instead.
 // Keep this file free of runtime imports so tests can load it without a Pod environment.
 
-!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="c6638ca7-5059-5f94-8ac7-999f0b3d750e")}catch(e){}}();
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="22bd9df1-07af-5b25-ae82-43e2ef1a55f9")}catch(e){}}();
 export const DEFAULT_CALM_MINUTES_TO_RESUME = 5;
 export const DEFAULT_SLEEP_RULES = {
     stillMinutesToSleep: 15, restlessSecondsToWake: 20, calmMinutesToResume: DEFAULT_CALM_MINUTES_TO_RESUME,
@@ -103,7 +103,11 @@ export const MIN_NIGHTS_TO_CALIBRATE = 7;
 // disagree with the tracker on fewer than this fraction of the minutes the default rules do. A
 // fit that only looks good on the nights it was made from is not taken.
 const HELD_OUT_SHARE_TO_BEAT = 0.9;
-const STILL_MINUTES_CANDIDATES = [5, 8, 10, 15, 20, 30];
+// Fewer still minutes than this are not taken for sleep, whatever a tracker says: people lie
+// still and awake for that long, and a tracker that missed it would teach the bed to start the
+// night early
+export const MIN_STILL_MINUTES_TO_SLEEP = 10;
+const STILL_MINUTES_CANDIDATES = [10, 15, 20, 30];
 const RESTLESS_SECONDS_CANDIDATES = [8, 12, 20, 30];
 const CALM_MINUTES_CANDIDATES = [3, 5, 10];
 const BREATHING_SPREAD_CANDIDATES = [undefined, 2, 4];
@@ -144,6 +148,15 @@ export function countDisagreements(night, rules) {
     return replaySleep(night.minutes, rules).filter((isAsleep, index) => isAsleep !== (night.trackerAsleep[index] ?? false)).length;
 }
 const sum = (values) => values.reduce((total, value) => total + value, 0);
+// Whether the tracker says the sleeper lay awake between falling asleep and waking, for at least
+// as many minutes as the bed needs to call someone awake
+const trackerSawWaking = (night) => {
+    const firstAsleep = night.trackerAsleep.indexOf(true);
+    const lastAsleep = night.trackerAsleep.lastIndexOf(true);
+    if (firstAsleep < 0)
+        return false;
+    return night.trackerAsleep.slice(firstAsleep, lastAsleep).filter(isAsleep => !isAsleep).length >= AWAKE_RESTLESS_MINUTES;
+};
 // The rules that fit these nights best, if a fit can be trusted. The default rules are kept
 // with too few nights, and unless fitted rules also do better on nights they were not fitted to.
 export function calibrateSleepRules(nights) {
@@ -155,11 +168,17 @@ export function calibrateSleepRules(nights) {
     };
     if (nights.length < MIN_NIGHTS_TO_CALIBRATE)
         return untuned;
+    // A tracker that never saw the sleeper wake in the night says nothing about what waking looks
+    // like on the bed: fitted to it, the rules would only learn never to call anyone awake. So
+    // the waking rules keep their defaults, and only falling asleep is fitted.
+    const canFitWaking = nights.some(trackerSawWaking);
+    const restlessCandidates = canFitWaking ? RESTLESS_SECONDS_CANDIDATES : [DEFAULT_SLEEP_RULES.restlessSecondsToWake];
+    const calmCandidates = canFitWaking ? CALM_MINUTES_CANDIDATES : [DEFAULT_SLEEP_RULES.calmMinutesToResume];
     // The default rules come first, so that a candidate has to do strictly better to be chosen
     const candidates = [DEFAULT_SLEEP_RULES];
     for (const stillMinutesToSleep of STILL_MINUTES_CANDIDATES) {
-        for (const restlessSecondsToWake of RESTLESS_SECONDS_CANDIDATES) {
-            for (const calmMinutesToResume of CALM_MINUTES_CANDIDATES) {
+        for (const restlessSecondsToWake of restlessCandidates) {
+            for (const calmMinutesToResume of calmCandidates) {
                 for (const maxBreathingSpread of BREATHING_SPREAD_CANDIDATES) {
                     candidates.push({ stillMinutesToSleep, restlessSecondsToWake, calmMinutesToResume, maxBreathingSpread });
                 }
@@ -238,4 +257,4 @@ export function readTrackerMinutes(tracker, startedAtMs, minuteCount) {
     });
 }
 //# sourceMappingURL=sleepTracker.js.map
-//# debugId=c6638ca7-5059-5f94-8ac7-999f0b3d750e
+//# debugId=22bd9df1-07af-5b25-ae82-43e2ef1a55f9

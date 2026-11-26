@@ -55,8 +55,8 @@ import {
   kindOfSleep,
 } from './scheduledBase.js';
 import {
-  CalibrationNight, DEFAULT_SLEEP_RULES, MIN_NIGHTS_TO_CALIBRATE, MinuteSummary, SleepPeriod, SleepRules, SleepState, calibrateSleepRules,
-  createSleepTracker,
+  Calibration, CalibrationNight, DEFAULT_SLEEP_RULES, MIN_NIGHTS_TO_CALIBRATE, MinuteSummary, SleepPeriod, SleepRules, SleepState,
+  calibrateSleepRules, createSleepTracker,
   mergeSleepPeriods, readTrackerMinutes,
 } from './sleepTracker.js';
 
@@ -498,12 +498,12 @@ const overlapMs = (night: NightRecord, period: SleepPeriod) => (
   Math.min(night.startedAtMs + night.minutes.length * MINUTE_MS, period.awakeAtMs) - Math.max(night.startedAtMs, period.asleepAtMs)
 );
 
-// Fits the sleep rules to the newest nights that a sleep tracker reported on, minute by minute,
-// and notes how well the bed agrees with the tracker
 // How many of the sleeps a tracker sent are kept to show what arrived
 const LAST_SLEEPS_KEPT = 4;
 
-const recalibrate = (source: string, nowMs: number, periods: SleepPeriod[], matchedStays: number) => {
+// Fits the sleep rules to the newest saved nights that a sleep tracker reported on, minute by
+// minute, and puts them in use
+const fitRulesToTracker = (): Calibration => {
   const nights: CalibrationNight[] = readAllNights()
     .filter(night => night.tracker && night.kind === 'night' && night.minutes.length >= MIN_CALIBRATION_MINUTES)
     .slice(0, CALIBRATION_NIGHTS)
@@ -518,6 +518,12 @@ const recalibrate = (source: string, nowMs: number, periods: SleepPeriod[], matc
     }] : []));
   const calibration = calibrateSleepRules(nights);
   rules = calibration.rules;
+  return calibration;
+};
+
+// Fits the rules again after a tracker sent its sleeps, and notes how well the bed agrees with it
+const recalibrate = (source: string, nowMs: number, periods: SleepPeriod[], matchedStays: number) => {
+  const calibration = fitRulesToTracker();
   trackerLink = {
     source,
     syncedAt: new Date(nowMs).toISOString(),
@@ -530,6 +536,17 @@ const recalibrate = (source: string, nowMs: number, periods: SleepPeriod[], matc
   };
   saveState();
   logger.debug(`Autopilot: sleep rules after ${calibration.nights} tracker nights: ${JSON.stringify(calibration)}`);
+};
+
+// Rules saved by an older version were fitted its way. Fitting them again from the same saved
+// nights when the autopilot starts means a change to the fitting applies at once, not only once
+// the tracker next sends.
+const refitSavedRules = () => {
+  if (!trackerLink) return;
+  const calibration = fitRulesToTracker();
+  trackerLink = { ...trackerLink, nights: calibration.nights, agreementPercent: calibration.agreementPercent, isTuned: calibration.isTuned };
+  saveState();
+  logger.debug(`Autopilot: sleep rules fitted again on start: ${JSON.stringify(calibration)}`);
 };
 
 // A worn sleep tracker's account of when the bed's sleeper slept. Its sleeps are filed with
@@ -613,6 +630,11 @@ export class AutopilotMonitor {
       emptySwing = { ...saved.emptySwing };
     } catch {
       // Nothing saved yet
+    }
+    try {
+      refitSavedRules();
+    } catch (error) {
+      logger.warn(`Autopilot: could not fit the sleep rules again, keeping the saved ones: ${String(error)}`);
     }
     registerManualChangeListener((side, temperatureF, isPersonsOwn) => this.noteManualChange(side, temperatureF, isPersonsOwn));
     this.minuteTimer = setInterval(() => void this.runMinute(), MINUTE_MS);
