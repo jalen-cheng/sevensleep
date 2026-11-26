@@ -90,28 +90,18 @@ class SendSleepTests(unittest.TestCase):
 
     def test_actions_run_in_the_order_the_shortcut_needs(self):
         self.assertEqual(identifiers(self.actions), [
-            'gettext', 'gettext', 'getwifi', 'conditional',
+            'gettext',
             'filter.health.quantity', 'repeat.each',
             'properties.health.quantity', 'format.date', 'properties.health.quantity', 'format.date',
             'properties.health.quantity', 'gettext', 'repeat.each',
             'downloadurl', 'getvalueforkey', 'notification',
-            'conditional', 'notification', 'conditional',
         ])
 
-    def test_it_only_sends_on_the_home_wifi(self):
-        check = self.actions[3]['WFWorkflowActionParameters']
-        self.assertEqual(check['WFCondition'], builder.OPERATOR_IS)
-        self.assertEqual(check['WFInput']['Variable']['Value']['OutputName'], 'Network Details')
-        compared = check['WFConditionalActionString']['Value']['attachmentsByRange']['{0, 1}']
-        self.assertEqual(compared['OutputName'], builder.WIFI_OUTPUT_NAME)
-        # Everything that reads Health or reaches the Pod sits between the If and its Otherwise
-        otherwise = identifiers(self.actions).index('conditional', 4)
-        self.assertLess(identifiers(self.actions).index('downloadurl'), otherwise)
-        self.assertEqual(identifiers(self.actions)[otherwise + 1:], ['notification', 'conditional'])
-
-    def test_it_asks_for_the_address_and_the_wifi(self):
+    def test_it_asks_only_for_the_address(self):
+        # Setting it up is one question with an answer already filled in
         questions = builder.build_shortcut('Send sleep to SevenSleep')['WFWorkflowImportQuestions']
-        self.assertEqual([question['Text'] for question in questions], [builder.HOME_ADDRESS_QUESTION, builder.WIFI_QUESTION])
+        self.assertEqual([question['Text'] for question in questions], [builder.HOME_ADDRESS_QUESTION])
+        self.assertEqual(questions[0]['DefaultValue'], builder.HOME_ADDRESS)
 
     def test_the_repeat_opens_and_closes_as_one_group(self):
         opening, closing = [action['WFWorkflowActionParameters'] for action in self.actions
@@ -123,7 +113,7 @@ class SendSleepTests(unittest.TestCase):
         self.assertIn('UUID', closing)
 
     def test_each_line_is_start_end_value(self):
-        line = self.actions[11]['WFWorkflowActionParameters']['WFTextActionText']['Value']
+        line = self.actions[8]['WFWorkflowActionParameters']['WFTextActionText']['Value']
         mark = builder.VARIABLE_MARK
         self.assertEqual(line['string'], f'{mark}|{mark}|{mark}')
         names = [line['attachmentsByRange'][position]['OutputName'] for position in ('{0, 1}', '{2, 1}', '{4, 1}')]

@@ -5,6 +5,7 @@ version. Anything older is in the [git history](https://github.com/jalen-cheng/s
 
 ## 3.26
 - With the autopilot on, the bed is sensed as one sleeper: moving over to the other side in the night no longer ends the sleep or splits the night's record in two.
+- The "Send sleep to SevenSleep" Shortcut asks only for the Pod's address when it is added, not the home Wi-Fi's name.
 
 ## 3.25
 - Docs: SevenSleep compared with Free Sleep, with how to switch and how to go back.

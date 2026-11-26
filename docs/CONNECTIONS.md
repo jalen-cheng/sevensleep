@@ -17,17 +17,17 @@ sends the last two weeks of sleep, so it is tapped every week or so, not every d
 
 1. On the iPhone, open **[Send sleep to SevenSleep](https://github.com/jalen-cheng/sevensleep/raw/main/docs/shortcuts/Send%20sleep%20to%20SevenSleep.shortcut)**, tap the download in Safari, and
    tap **Add Shortcut**.
-2. It asks two things: your Pod's address at home (leave `http://sevensleep.local` unless your
-   Pod has another name), and the name of your home Wi-Fi, exactly as the phone shows it.
+2. It asks for one thing, your Pod's address at home: leave `http://sevensleep.local` unless
+   your Pod has another name. If the keyboard hides the button to finish, swipe down to put it
+   away.
 3. At home, tap the Shortcut once to run it. The first run asks to read Sleep from Health, to
    send the health samples to your Pod, and to show notifications: allow each (**Always Allow**
    for the samples, or it asks every time).
 4. A notification from SevenSleep says what happened, for example "1 sleep received from Apple
    Health. Matched 1 stay in bed." **Data > Sleep** then shows the tracker's times on that night.
 
-**It only sends on your home Wi-Fi.** The Pod's home address works nowhere else, so on any other
-network the Shortcut sends nothing and says so ("Not on Home (this phone is on Cafe), so no
-sleep was sent."). So it does no harm to run it anywhere.
+**Run it at home.** The Pod's home address works nowhere else, so away from home Shortcuts says
+it could not connect, and nothing is lost: the next run at home sends the same two weeks.
 
 **When to run it.** Every week or so, or whenever you want the Sleep page to show your tracker's
 times. Each run sends every night of the last two weeks at once, so a missed week costs nothing,
@@ -35,7 +35,7 @@ and the 7 nights the sleep rules are fitted to can arrive in one tap. Sending a 
 changes nothing, and a night the Pod has no stay in bed for is passed over.
 
 If you would sooner not think about it, **Shortcuts > Automation** can run it for you (**Wi-Fi**:
-when the iPhone joins your home network, set to **Run Immediately**). An iPhone only lets a
+when the iPhone joins your home network, set to **Run Immediately**), so it only runs at home. An iPhone only lets a
 Shortcut read health data while it is unlocked, so a run that comes while the phone is locked
 waits until you next use it.
 
@@ -45,39 +45,33 @@ stage.
 | What you see | What it means |
 |---|---|
 | "No sleep found in what Apple Health sent" | The Shortcut reached the Pod, and Health has no sleep for the last two weeks. Look in **Health > Browse > Sleep**: if last night is not there, your tracker's app is not writing sleep to Apple Health |
-| "Not on …, so no sleep was sent" | The phone is not on the Wi-Fi named when the Shortcut was added. If it is, the name does not match: fix it in the Shortcut's second action |
-| "Could not connect to the server", or the address not found | The phone cannot reach the Pod. Allow Shortcuts under **Settings > Privacy & Security > Local Network**, or put the Pod's IP address in the Shortcut's first action |
+| "Could not connect to the server", or the address not found | The phone cannot reach the Pod: it is away from home, or not on the home Wi-Fi. At home, allow Shortcuts under **Settings > Privacy & Security > Local Network**, or put the Pod's IP address in the Shortcut's first action |
 | "…received… No stay in bed saved on the Pod overlaps it" | The sleep arrived, but the Pod has no saved stay for those hours. It saves stays of 20 minutes or more, and only while a person is on the bed |
 | Nothing at all | Notifications for Shortcuts are off: **Settings > Notifications > Shortcuts** |
 
 The file is made by `scripts/build_shortcuts.py`, with every action written the way working
 exported shortcuts write it, and signed with `shortcuts sign` on a Mac. It was added and run in
 Xcode's iPhone simulator (iOS 27.2) with two sleep entries in Health: every action came in
-complete, and both of its paths did what they should (sending what the Pod expects; saying so
-and sending nothing). One step could not run there: the simulator has no Wi-Fi, so reading the
-Wi-Fi's name was stood in for by hand. **That step has not yet run on a real phone.** The
-version before it, without the Wi-Fi check, has run on a real iPhone against a real Pod. The
-by-hand version below has not been run at all.
+complete, and it sent what the Pod expects. The same actions, without the home Wi-Fi check
+that 3.21 to 3.26 had, have run on a real iPhone against a real Pod. The by-hand version below
+has not been run at all.
 
 ### Or build it by hand
 
 The same actions, in order:
 
 1. **Text**: `http://sevensleep.local` (or your Pod's address at home).
-2. **Text**: the name of your home Wi-Fi.
-3. **Get Network Details**, left on Wi-Fi and Network Name, then **If** Network Details **is**
-   the Text from step 2. Everything in steps 4 to 7 goes inside the If.
-4. **Find Health Samples** where **Type** is **Sleep** and **Start Date** is in the last 2 days.
-5. **Repeat with Each** over the Health Samples. Inside it:
+2. **Find Health Samples** where **Type** is **Sleep** and **Start Date** is in the last 14 days.
+3. **Repeat with Each** over the Health Samples. Inside it:
    - **Get Details of Health Sample**: **Start Date** of Repeat Item, then **Format Date** on
      it with **ISO 8601** and **Include ISO 8601 Time** on.
    - The same two actions for **End Date**.
    - **Get Details of Health Sample**: **Value** of Repeat Item.
    - **Text**: the first Formatted Date, `|`, the second Formatted Date, `|`, the Value.
-6. After **End Repeat**, **Get Contents of URL**: the Text from step 1 followed by
+4. After **End Repeat**, **Get Contents of URL**: the Text from step 1 followed by
    `/api/autopilot/sleepTimes`, Method **POST**, Request Body **JSON** with two text fields,
    `source` = `Apple Health` and `samples` = **Repeat Results**.
-7. **Get Dictionary Value** for `message` in the Contents of URL, and **Show Notification**
+5. **Get Dictionary Value** for `message` in the Contents of URL, and **Show Notification**
    with it.
 8. Under **Otherwise**, a **Show Notification** saying nothing was sent.
 

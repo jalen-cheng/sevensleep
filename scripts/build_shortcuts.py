@@ -7,8 +7,8 @@ sign each on a Mac, into docs/shortcuts under the Shortcut's own name:
     python3 scripts/build_shortcuts.py unsigned/
     shortcuts sign --mode anyone --input "unsigned/Bed off.shortcut" --output "docs/shortcuts/Bed off.shortcut"
 
-Two of them do what the app cannot: "Send sleep to SevenSleep" reads Apple Health (and only
-runs on the home Wi-Fi; one run sends the last two weeks, so it is tapped now and then, not every day), and "Open SevenSleep"
+Two of them do what the app cannot: "Send sleep to SevenSleep" reads Apple Health (one run
+sends the last two weeks, so it is tapped now and then at home, not every day), and "Open SevenSleep"
 opens the app from anywhere, connecting Tailscale first when away from home. The other four
 are optional, for Siri and automations: they talk to the Pod at its home address.
 
@@ -205,19 +205,16 @@ def iso_date(detail_uuid, property_name, formatted_uuid):
 
 
 def send_sleep_actions():
-    """On the home Wi-Fi: finds the Sleep samples of the last two weeks, writes each as
-    "start|end|value" with ISO 8601 times, posts the lines to the Pod and shows its answer as a
-    notification. On any other network it says so and sends nothing, so it can be run anywhere
-    by an automation without failing away from home."""
-    address, wifi, network, on_wifi = new_uuid(), new_uuid(), new_uuid(), new_uuid()
+    """Finds the Sleep samples of the last two weeks, writes each as "start|end|value" with
+    ISO 8601 times, posts the lines to the Pod and shows its answer as a notification. Away from
+    home the Pod cannot be reached, and Shortcuts says so itself; nothing is lost, since the next
+    run at home sends the same two weeks. Only the address is asked for when it is added."""
+    address = new_uuid()
     samples, repeat_group, repeat_results = new_uuid(), new_uuid(), new_uuid()
     start, start_iso, end, end_iso, value, line = (new_uuid() for _ in range(6))
     response, message = new_uuid(), new_uuid()
     return [
         asked_text(ADDRESS_OUTPUT_NAME, HOME_ADDRESS, address),
-        asked_text(WIFI_OUTPUT_NAME, '', wifi),
-        network_name(network),
-        if_on_wifi(network, wifi, on_wifi),
         action('filter.health.quantity', {
             'WFContentItemFilter': {
                 'Value': {
@@ -264,12 +261,6 @@ def send_sleep_actions():
         ]),
         answer_value(response, 'message', message),
         notification([output_of(message, 'Dictionary Value')]),
-        otherwise(on_wifi),
-        notification([
-            'Not on ', output_of(wifi, WIFI_OUTPUT_NAME), ' (this phone is on ', output_of(network, 'Network Details'),
-            '), so no sleep was sent.',
-        ]),
-        end_if(on_wifi),
     ]
 
 
