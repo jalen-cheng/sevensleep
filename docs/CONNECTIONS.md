@@ -15,6 +15,16 @@ sends the last two weeks of sleep, so it is tapped every week or so, not every d
 
 ### Add the ready-made Shortcut
 
+> [!WARNING]
+> **ONE IPHONE SETTING HAS TO BE ON, OR NO SLEEP IS SENT.**
+> Two weeks of sleep is more data than an iPhone lets a Shortcut send by default. Without the
+> setting, every run stops at **Get Contents of URL** with a message that it is not allowed and
+> can be allowed in Settings, and nothing reaches the Pod. It comes back on every run, not only
+> the first. Turn it on once:
+> **Settings > Apps > Shortcuts > Advanced > Allow Sharing Large Amounts of Data**.
+> If that is on and the message still shows, open the Shortcut's **Details > Privacy** in the
+> Shortcuts app and set `sevensleep.local` to **Allow** (or **Reset Privacy** and run it again).
+
 1. On the iPhone, open **[Send sleep to SevenSleep](https://github.com/jalen-cheng/sevensleep/raw/main/docs/shortcuts/Send%20sleep%20to%20SevenSleep.shortcut)**, tap the download in Safari, and
    tap **Add Shortcut**.
 2. It asks for one thing, your Pod's address at home: leave `http://sevensleep.local` unless
@@ -45,6 +55,7 @@ stage.
 | What you see | What it means |
 |---|---|
 | "No sleep found in what Apple Health sent" | The Shortcut reached the Pod, and Health has no sleep for the last two weeks. Look in **Health > Browse > Sleep**: if last night is not there, your tracker's app is not writing sleep to Apple Health |
+| **Get Contents of URL** "is not allowed", "can be allowed in Settings" | The setting in the warning above is off. Nothing was sent |
 | "Could not connect to the server", or the address not found | The phone cannot reach the Pod: it is away from home, or not on the home Wi-Fi. At home, allow Shortcuts under **Settings > Privacy & Security > Local Network**, or put the Pod's IP address in the Shortcut's first action |
 | "…received… No stay in bed saved on the Pod overlaps it" | The sleep arrived, but the Pod has no saved stay for those hours. It saves stays of 20 minutes or more, and only while a person is on the bed |
 | Nothing at all | Notifications for Shortcuts are off: **Settings > Notifications > Shortcuts** |

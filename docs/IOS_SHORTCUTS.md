@@ -16,8 +16,12 @@ Two Shortcuts do what the app cannot. Open a link on the iPhone, tap the downloa
 then **Add Shortcut**; each asks once for what differs from one home to the next.
 
 - **[Send sleep to SevenSleep](https://github.com/jalen-cheng/sevensleep/raw/main/docs/shortcuts/Send%20sleep%20to%20SevenSleep.shortcut)** sends last night's sleep from Apple Health, which a web
-  page cannot read. It runs only on your home Wi-Fi, and one run sends the last two weeks, so tap it every week or so
+  page cannot read. Run it at home; one run sends the last two weeks, so tap it every week or so
   ([Connections](CONNECTIONS.md#link-apple-health)).
+
+  > [!WARNING]
+  > **IT NEEDS ONE IPHONE SETTING, OR EVERY RUN SENDS NOTHING:** Settings > Apps > Shortcuts >
+  > Advanced > **Allow Sharing Large Amounts of Data**.
 - **[Open SevenSleep](https://github.com/jalen-cheng/sevensleep/raw/main/docs/shortcuts/Open%20SevenSleep.shortcut)** opens the app from one icon: straight away on your home Wi-Fi,
   and after connecting Tailscale anywhere else. It asks for your Pod's address at home
   (`http://sevensleep.local`), its address over Tailscale (`http://sevensleep:3000`; over
