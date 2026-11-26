@@ -64,7 +64,7 @@ I am happy to lend them out :) Open an [issue](https://github.com/jalen-cheng/se
 
 ### Already running Free Sleep
 
-[SevenSleep compared with Free Sleep](docs/COMPARED_WITH_FREE_SLEEP.md) says what is different, what is unproven here, and how to go back.
+[SevenSleep compared with Free Sleep](docs/COMPARED_WITH_FREE_SLEEP.md) says what you gain, how to switch, and how to go back.
 
 No cable and no opening the hub. Over SSH, lift the internet block, run the same installer, and
 block again. Settings and schedules are kept, and going back is one command:
