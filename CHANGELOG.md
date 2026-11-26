@@ -7,6 +7,9 @@ version. Anything older is in the [git history](https://github.com/jalen-cheng/s
 - With the autopilot on, the bed is sensed as one sleeper: moving over to the other side in the night no longer ends the sleep or splits the night's record in two.
 - The "Send sleep to SevenSleep" Shortcut asks only for the Pod's address when it is added, not the home Wi-Fi's name.
 
+### 3.26.1
+- Fitting the sleep rules to a tracker no longer takes fewer than 10 still minutes for sleep, and only fits waking to a tracker that saw some; saved rules are fitted again when the Pod starts.
+
 ## 3.25
 - Docs: SevenSleep compared with Free Sleep, with how to switch and how to go back.
 - The in-bed alarm counts hours from falling asleep, not from getting into bed, and is named "Alarm after a long sleep".
